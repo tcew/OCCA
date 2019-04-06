@@ -12,6 +12,7 @@
 #include <occa/tools/sys.hpp>
 
 namespace occa {
+  //---[ Transformations ]--------------
   std::string strip(const std::string &str) {
     const char *start = str.c_str();
     const char *end = start + str.size() - 1;
@@ -99,6 +100,26 @@ namespace occa {
     }
     return ret;
   }
+
+  std::string pad(const char *c,
+                  const int chars,
+                  const int padding) {
+    if (padding <= 0) {
+      return std::string(c, c + chars);
+    }
+
+    const std::string padStr(padding, ' ');
+    std::string paddedStr = padStr;
+    for (int i = 0; i < chars; ++i) {
+      const char ci = c[i];
+      paddedStr += ci;
+      if ((ci == '\n') && (i < (chars - 1))) {
+        paddedStr += padStr;
+      }
+    }
+    return paddedStr;
+  }
+  //====================================
 
   template <>
   std::string toString<std::string>(const std::string &t) {

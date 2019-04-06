@@ -12,6 +12,7 @@
 #include <occa/types.hpp>
 
 namespace occa {
+  //---[ Transformations ]--------------
   std::string strip(const std::string &str);
 
   std::string escape(const std::string &str,
@@ -53,6 +54,16 @@ namespace occa {
   inline std::string lowercase(const std::string &s) {
     return lowercase(s.c_str(), s.size());
   }
+
+  std::string pad(const char *c,
+                  const int chars,
+                  const int padding);
+
+  inline std::string pad(const std::string &s,
+                         const int padding) {
+    return pad(s.c_str(), s.size(), padding);
+  }
+  //====================================
 
   template <class TM>
   std::string toString(const TM &t) {

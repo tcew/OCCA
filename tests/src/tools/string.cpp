@@ -7,6 +7,7 @@ void testStrip();
 void testEscape();
 void testSplit();
 void testCaseMethods();
+void testPadding();
 void testString();
 void testMatchEnds();
 void testHex();
@@ -18,6 +19,7 @@ int main(const int argc, const char **argv) {
   testEscape();
   testSplit();
   testCaseMethods();
+  testPadding();
   testString();
   testMatchEnds();
   testHex();
@@ -72,6 +74,50 @@ void testCaseMethods() {
 
   ASSERT_EQ(lowercase("ABC123"), "abc123");
   ASSERT_EQ(lowercase("abc123", 3), "abc");
+}
+
+void testPadding() {
+  ASSERT_EQ(
+    pad(
+      "a\n"
+      "b", 2),
+    std::string(
+      "  a\n"
+      "  b"));
+
+  ASSERT_EQ(
+    pad(
+      "a\n"
+      "b\n", 2),
+    std::string(
+      "  a\n"
+      "  b\n"));
+
+  ASSERT_EQ(
+    pad(
+      "a\n"
+      "b\n"
+      "\n", 2),
+    std::string(
+      "  a\n"
+      "  b\n"
+      "  \n"));
+
+  ASSERT_EQ(
+    pad(
+      "a\n"
+      "b\n", 0),
+    std::string(
+      "a\n"
+      "b\n"));
+
+  ASSERT_EQ(
+    pad(
+      "a\n"
+      "b\n", -1),
+    std::string(
+      "a\n"
+      "b\n"));
 }
 
 void testString() {
