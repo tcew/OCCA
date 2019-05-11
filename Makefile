@@ -69,7 +69,7 @@ endif
 
 outputs = $(libPath)/libocca.$(soExt) $(binPath)/occa
 
-ifdef SANITIZER_ENABLED
+ifdef ADDRESS_SANITIZER_ENABLED
   testFlags = $(compilerFlags) -fsanitize=address -fno-omit-frame-pointer
 else
   testFlags = $(compilerFlags)

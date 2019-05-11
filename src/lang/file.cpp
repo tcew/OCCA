@@ -2,6 +2,7 @@
 #include <occa/tools/string.hpp>
 #include <occa/tools/lex.hpp>
 
+#include <occa/lang/codes.hpp>
 #include <occa/lang/file.hpp>
 #include <occa/lang/tokenizer.hpp>
 
@@ -61,6 +62,10 @@ namespace occa {
 
     size_t filePosition::size() const {
       return (end - start);
+    }
+
+    int filePosition::lineOffset() const {
+      return (int) (start - lineStart);
     }
 
     std::string filePosition::str() const {
@@ -163,10 +168,10 @@ namespace occa {
     }
 
     void fileOrigin::push(const bool fromInclude_,
-                          const fileOrigin &origin) {
+                          const fileOrigin &other) {
       push(fromInclude_,
-           *origin.file,
-           origin.position);
+           *other.file,
+           other.position);
     }
 
     void fileOrigin::push(const bool fromInclude_,
@@ -191,68 +196,72 @@ namespace occa {
     }
 
     fileOrigin fileOrigin::from(const bool fromInclude_,
-                                const fileOrigin &origin) {
-      fileOrigin fo = origin;
+                                const fileOrigin &other) const {
+      fileOrigin fo = other;
       fo.push(fromInclude_, *this);
       return fo;
     }
 
-    dim_t fileOrigin::distanceTo(const fileOrigin &origin) {
-      if (file != origin.file) {
+    dim_t fileOrigin::distanceTo(const fileOrigin &other) const {
+      if (file != other.file) {
+        // TDOO: Return max dim_t as distance
         return -1;
       }
-      return (origin.position.start - position.end);
+      return (other.position.start - position.end);
     }
 
-    void fileOrigin::preprint(io::output &out) const {
-      print(out, true);
+    bool fileOrigin::onSameLine(const fileOrigin &other) const {
+      if (file != other.file) {
+        return false;
+      }
+      return (position.lineStart == other.position.lineStart);
     }
 
-    void fileOrigin::postprint(io::output &out) const {
-      const char *lineEnd = position.lineStart;
-      lex::skipTo(lineEnd, '\n');
-
-      const std::string line(position.lineStart,
-                             lineEnd - position.lineStart);
-      const std::string space(position.start - position.lineStart, ' ');
-
-      out << line << '\n'
-          << space << green("^") << '\n';
-    }
-
-    void fileOrigin::print(io::output &out,
-                           const bool root) const {
+    void fileOrigin::printStack(io::output &out,
+                                const bool root) const {
       if (up) {
-        up->print(out, false);
+        up->printStack(out, false);
       }
-      // Print file location
-      out << blue(file->filename)
-          ;
-      if (file != &originSource::builtin) {
-        out << ':' << position.line
-            << ':' << (position.start - position.lineStart + 1);
-      }
-      out << ": ";
 
       if (!root) {
+        // Print file location
+        out << blue(file->filename) << ':';
+        if (file != &originSource::builtin) {
+          out << position.line;
+        }
+
         if (fromInclude) {
-          out << "Included file:\n";
+          out << " Included file:\n";
         } else {
-          out << "Expanded from macro '" << position.str() << "':\n";
+          out << " Expanded from macro '" << position.str() << "':\n";
         }
       }
     }
 
-    void fileOrigin::printWarning(const std::string &message) const {
-      preprint(io::stderr);
-      occa::printWarning(io::stderr, message);
-      postprint(io::stderr);
+    void fileOrigin::printWarning(const std::string &message,
+                                  const std::string &code) const {
+      printWarning(io::stderr, message, code);
     }
 
-    void fileOrigin::printError(const std::string &message) const {
-      preprint(io::stderr);
-      occa::printError(io::stderr, message);
-      postprint(io::stderr);
+    void fileOrigin::printWarning(io::output &out,
+                                  const std::string &message,
+                                  const std::string &code) const {
+      warningCode(out, code)
+          .withMessage(*this, message)
+          .print();
+    }
+
+    void fileOrigin::printError(const std::string &message,
+                                const std::string &code) const {
+      printError(io::stderr, message, code);
+    }
+
+    void fileOrigin::printError(io::output &out,
+                                const std::string &message,
+                                const std::string &code) const {
+      errorCode(out, code)
+          .withMessage(*this, message)
+          .print();
     }
     //==================================
   }

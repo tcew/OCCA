@@ -48,6 +48,9 @@ namespace occa {
       filePosition(const filePosition &other);
 
       size_t size() const;
+
+      int lineOffset() const;
+
       std::string str() const;
     };
 
@@ -81,7 +84,7 @@ namespace occa {
       void setUp(fileOrigin *up_);
 
       void push(const bool fromInclude_,
-                const fileOrigin &origin);
+                const fileOrigin &other);
 
       void push(const bool fromInclude_,
                 file_t &file_,
@@ -90,22 +93,28 @@ namespace occa {
       void pop();
 
       fileOrigin from(const bool fromInclude_,
-                      const fileOrigin &origin);
+                      const fileOrigin &other) const;
 
-      dim_t distanceTo(const fileOrigin &origin);
+      dim_t distanceTo(const fileOrigin &other) const;
 
-      void preprint(io::output &out) const;
-      void postprint(io::output &out) const;
+      bool onSameLine(const fileOrigin &other) const;
 
-      void print(io::output &out,
-                 const bool root = true) const;
+      void printStack(io::output &out,
+                      const bool root = true) const;
 
-      inline void print(const bool root = true) const {
-        print(io::stderr, root);
-      }
+      void printWarning(const std::string &message,
+                        const std::string &code = "") const;
 
-      void printWarning(const std::string &message) const;
-      void printError(const std::string &message) const;
+      void printWarning(io::output &out,
+                        const std::string &message,
+                        const std::string &code = "") const;
+
+      void printError(const std::string &message,
+                      const std::string &code = "") const;
+
+      void printError(io::output &out,
+                      const std::string &message,
+                      const std::string &code = "") const;
     };
   }
 }
