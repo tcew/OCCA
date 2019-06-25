@@ -1,10 +1,11 @@
 #include <iterator>
 
 #include <occa/lang/codes.hpp>
+#include <occa/tools/lex.hpp>
 
 namespace occa {
   namespace lang {
-    static const int MAX_SOURCES_PRINTED = 5;
+    const int DEFAULT_MAX_ERRORS_DISPLAYED = 5;
 
     codeSource_t::codeSource_t(const fileOrigin &origin_,
                                const std::string &message_) :
@@ -62,7 +63,9 @@ namespace occa {
 
     codePrinter_t& codePrinter_t::operator = (const codePrinter_t &other) {
       if (this != &other) {
+        isError = other.isError;
         code    = other.code;
+
         origin  = other.origin;
         message = other.message;
 
@@ -74,14 +77,14 @@ namespace occa {
     }
 
     codePrinter_t& codePrinter_t::withMessage(const fileOrigin &origin_,
-                                             const std::string &message_) {
+                                              const std::string &message_) {
       origin  = origin_;
       message = message_;
       return *this;
     }
 
     codePrinter_t& codePrinter_t::withSource(const fileOrigin &origin_,
-                                            const std::string &message_) {
+                                             const std::string &message_) {
       return withSource(codeSource_t(origin_, message_));
     }
 
@@ -103,7 +106,7 @@ namespace occa {
 
     int codePrinter_t::supressSources() {
       int supressedCount = 0;
-      int sourcesAvailable = MAX_SOURCES_PRINTED;
+      int sourcesAvailable = DEFAULT_MAX_ERRORS_DISPLAYED;
 
       fileCodeSourceMap::iterator it = sources.begin();
       while (it != sources.end()) {
@@ -137,30 +140,28 @@ namespace occa {
       OCCA_ERROR((isError ? "Error" : "Warning") << " code is missing its origin",
                  origin.isValid());
 
-      if (isError) {
-        occa::printError(out, message, code);
-      } else {
-        occa::printWarning(out, message, code);
-      }
-
+      // Supress warnings/errors if there are too many
       const int supressedCount = supressSources();
 
-      std::stringstream ss;
-      printSources(ss);
+      strVector sections;
+      addSourceSections(sections);
+      sections.push_back(
+        getSupressedMessage(supressedCount)
+      );
 
-      if (supressedCount) {
-        ss << '\n';
-        printSupressedMessage(ss, supressedCount);
-        ss << '\n';
+      if (isError) {
+        occa::printError(out, message, code, sections);
+      } else {
+        occa::printWarning(out, message, code, sections);
       }
-
-      out << '\n'
-          << pad(ss.str(), 4)
-          << '\n';
     }
 
-    void codePrinter_t::printSources(std::stringstream &ss) {
-      printOriginFileSources(ss);
+    void codePrinter_t::addSourceSections(strVector &sections) {
+      if (!sources.size()) {
+        return;
+      }
+      // Print issues from the original file first
+      addOriginFileSection(sections);
 
       fileCodeSourceMap::iterator it = sources.begin();
       while (it != sources.end()) {
@@ -168,22 +169,23 @@ namespace occa {
         codeSourceSet &fileSources = it->second;
 
         if (file != origin.file) {
-          printFileSources(ss, file, fileSources);
+          addFileSection(sections, file, fileSources);
         }
 
         ++it;
       }
     }
 
-    void codePrinter_t::printOriginFileSources(std::stringstream &ss) {
+    void codePrinter_t::addOriginFileSection(strVector &sections) {
       codeSourceSet &fileSources = sources[origin.file];
 
       bool originIsFirstSource = true;
       int maxLine = origin.position.line;
 
+      // Get the maximum line number for padding reasons
       codeSourceSet::iterator it = fileSources.begin();
       while (it != fileSources.end()) {
-        const codeSource_t &source = *it;
+        const codeSource_t &source = *(it++);
 
         if (maxLine < source.origin.position.line) {
           maxLine = source.origin.position.line;
@@ -192,79 +194,106 @@ namespace occa {
             (origin.distanceTo(source.origin) > 0)) {
           originIsFirstSource = false;
         }
-
-        ++it;
       }
 
-      if (originIsFirstSource) {
-        printFileSources(ss, origin.file, fileSources);
-        return;
+      std::stringstream ss;
+      if (origin.up) {
+        io::output io_ss(ss);
+        origin.up->printStack(io_ss, false);
       }
-
-      printOriginStack(ss);
 
       const int sidebarWidth = getSidebarWidth(maxLine);
-      printFileSources(ss,
+      const bool hasOriginSources = originLineSources.size();
+      const bool hasFileSources = fileSources.size();
+
+      // Add origin line sources first, followed by the rest of the origin file
+      if (hasOriginSources) {
+        ss << '\n';
+        addFileSection(sections,
                        origin.file,
                        originLineSources,
                        sidebarWidth);
+      }
 
-      printDivider(ss, "^^^", sidebarWidth);
-      ss << '\n';
+      // If the origin message is the first line, no need to add a divider
+      // splitting the origin message with other messages in the same file
+      if (!originIsFirstSource
+          && hasOriginSources
+          && hasFileSources) {
+        ss << '\n';
+        printDivider(ss, "^^^", sidebarWidth);
+      }
 
-      printFileSources(ss,
+      if (hasFileSources) {
+        ss << '\n';
+        addFileSection(sections,
                        origin.file,
                        fileSources,
                        sidebarWidth);
+      }
+
+      // Push back stacktrace combined with file sections
+      sections.push_back(ss.str());
     }
 
-    void codePrinter_t::printFileSources(std::stringstream &ss,
-                                         file_t *file,
-                                         codeSourceSet &fileSources,
-                                         int sidebarWidth) {
-      const int fileSourceCount = (int) fileSources.size();
-      if (!fileSourceCount) {
+    void codePrinter_t::addFileSection(std::stringstream &ss,
+                                       file_t *file,
+                                       codeSourceSet &fileSources,
+                                       int sidebarWidth) {
+      if (!fileSources.size()) {
         return;
       }
 
-      // fileSources is already sorted, don't sort in getSourceLines
-      printFilename(ss, file);
+      printFilenameLine(ss, file);
 
       if (sidebarWidth < 0) {
-        // Use the last line as the max line number to determine sidebar width
+        // fileSources is an already sorted set, use the last line
+        // as the max line number to determine sidebar width
         sidebarWidth = getSidebarWidth(
           (*fileSources.rbegin()).origin.position.line
         );
       }
 
-#if 0
-      const char *lineEnd = position.lineStart;
-      lex::skipTo(lineEnd, '\n');
+      codeSourceSet::iterator it = fileSources.begin();
+      while (it != fileSources.end()) {
+        const codeSource_t &source = *(it++);
+        const filePosition &position = source.origin.position;
 
-      const std::string line(position.lineStart,
-                             lineEnd - position.lineStart);
-      const std::string space(position.start - position.lineStart, ' ');
+        const char *lineEnd = position.lineStart;
+        lex::skipTo(lineEnd, '\n');
 
-      ss << line << '\n'
-          << space << green("^") << '\n';
-#endif
+        const std::string line(position.lineStart,
+                               lineEnd - position.lineStart - 1);
+        const std::string space(position.start - position.lineStart, ' ');
+
+        ss << line << '\n'
+           << space << green("^") << '\n';
+      }
     }
 
-    void codePrinter_t::printSupressedMessage(std::stringstream &ss,
-                                              const int supressedCount) {
+    void codePrinter_t::addFileSection(strVector &sections,
+                                       file_t *file,
+                                       codeSourceSet &fileSources,
+                                       int sidebarWidth) {
+      std::stringstream ss;
+      addFileSection(ss, file, fileSources, sidebarWidth);
+      sections.push_back(ss.str());
+    }
+
+    std::string codePrinter_t::getSupressedMessage(const int supressedCount) {
       if (supressedCount <= 0) {
-        return;
+        return "";
       }
 
-      std::stringstream sOut;
-      sOut << "Supressed " << supressedCount << " additional ";
+      std::stringstream ss;
+      ss << "Supressed " << supressedCount << " additional ";
       if (supressedCount > 1) {
-        sOut << (isError ? "errors" : "warnings");
+        ss << (isError ? "errors" : "warnings");
       } else {
-        sOut << (isError ? "error"  : "warning");
+        ss << (isError ? "error"  : "warning");
       }
 
-      ss << yellow(sOut.str());
+      return yellow(ss.str());
     }
 
     int codePrinter_t::getSidebarWidth(const int maxLine) {
@@ -277,24 +306,18 @@ namespace occa {
       return width;
     }
 
-    void codePrinter_t::printOriginStack(std::stringstream &ss) {
+    void codePrinter_t::addOriginStackSection(strVector &sections) {
+      std::stringstream ss;
       io::output ioss(ss);
+
       if (origin.up) {
         origin.up->printStack(ioss, false);
       }
-
-      printFilename(ss, origin.file);
-
-      if (isError) {
-        occa::printError(ioss, message, code);
-      } else {
-        occa::printWarning(ioss, message, code);
-      }
     }
 
-    void codePrinter_t::printFilename(std::stringstream &ss,
-                                      file_t *file) {
-      ss << blue(file->filename);
+    void codePrinter_t::printFilenameLine(std::stringstream &ss,
+                                          file_t *file) {
+      ss << blue(file->filename) << '\n';
     }
 
     void codePrinter_t::printDivider(std::stringstream &ss,

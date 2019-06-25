@@ -991,26 +991,59 @@ namespace occa {
              filename, function, line, message);
   }
 
+  void printMessage(io::output &out,
+                    const std::string &header,
+                    const std::string &message,
+                    const strVector &contentSections) {
+    out << header << ": " << message << '\n';
+
+    // Remove empty sections
+    strVector nonEmptyContentSections;
+    int sections = (int) contentSections.size();
+    for (int i = 0; i < sections; ++i) {
+      std::string section = strip(contentSections[i]);
+      if (section.size()) {
+        nonEmptyContentSections.push_back(section);
+      }
+    }
+
+    sections = (int) nonEmptyContentSections.size();
+    if (!sections) {
+      return;
+    }
+
+    for (int i = 0; i < sections; ++i) {
+      out << '\n'
+          << pad(nonEmptyContentSections[i], 4)
+          << '\n';
+    }
+    out << '\n';
+  }
+
   void printWarning(io::output &out,
                     const std::string &message,
-                    const std::string &code) {
+                    const std::string &code,
+                    const strVector &contentSections) {
+    std::string header;
     if (code.size()) {
-      out << yellow("Warning " + code);
+      header = yellow("Warning " + code);
     } else {
-      out << yellow("Warning");
+      header = yellow("Warning");
     }
-    out << ": " << message << '\n';
+    printMessage(out, header, message, contentSections);
   }
 
   void printError(io::output &out,
                   const std::string &message,
-                  const std::string &code) {
+                  const std::string &code,
+                  const strVector &contentSections) {
+    std::string header;
     if (code.size()) {
-      out << red("Error " + code);
+      header = red("Error " + code);
     } else {
-      out << red("Error");
+      header = red("Error");
     }
-    out << ": " << message << '\n';
+    printMessage(out, header, message, contentSections);
   }
 
   mutex::mutex() {

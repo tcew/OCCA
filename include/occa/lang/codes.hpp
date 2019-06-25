@@ -17,6 +17,8 @@ namespace occa {
     typedef std::vector<codeSource_t>        codeSourceVector;
     typedef std::map<file_t*, codeSourceSet> fileCodeSourceMap;
 
+    extern const int DEFAULT_MAX_ERRORS_DISPLAYED;
+
     class codeSource_t {
     public:
       int index;
@@ -40,7 +42,7 @@ namespace occa {
     private:
       io::output &out;
 
-      const bool isError;
+      bool isError;
       std::string code;
 
       fileOrigin origin;
@@ -69,30 +71,34 @@ namespace occa {
 
       void print();
 
-      void printSources(std::stringstream &ss);
+      void addSourceSections(strVector &sections);
 
-      void printOriginFileSources(std::stringstream &ss);
+      void addOriginFileSection(strVector &sections);
 
-      void printFileSources(std::stringstream &ss,
-                            file_t *file,
-                            codeSourceSet &fileSources,
-                            int sidebarWidth = -1);
+      void addFileSection(std::stringstream &ss,
+                          file_t *file,
+                          codeSourceSet &fileSources,
+                          int sidebarWidth = -1);
 
-      void printSourceLine(std::stringstream &ss,
+      void addFileSection(strVector &sections,
+                          file_t *file,
+                          codeSourceSet &fileSources,
+                          int sidebarWidth = -1);
+
+      void printSourceLine(strVector &sections,
                            file_t *file,
                            filePosition &linePos,
                            const int offset,
                            const int sidebarWidth);
 
-      void printSupressedMessage(std::stringstream &ss,
-                                 const int supressedSources);
+      std::string getSupressedMessage(const int supressedSources);
 
       int getSidebarWidth(const int maxLine);
 
-      void printOriginStack(std::stringstream &ss);
+      void addOriginStackSection(strVector &sections);
 
-      void printFilename(std::stringstream &ss,
-                         file_t *file);
+      void printFilenameLine(std::stringstream &ss,
+                             file_t *file);
 
       void printDivider(std::stringstream &ss,
                         const std::string &divider,
