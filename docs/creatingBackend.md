@@ -144,4 +144,21 @@ for(int b=0;b<B;++b;@outer(0)){
 }
 ```
 
-would be parsed and the instance of ```t``` and ```b``` would be replaced wth ```threadIdx.x``` and ```blockIdx.x``` respectively.
+would be parsed and the instance of ```t``` and ```b``` will be replaced by the CUDA mode parser plugin with ```threadIdx.x``` and ```blockIdx.x``` respectively. Whereas the OpenCL mode plugin will use the following transformation rule:
+
+```
+      std::string openclParser::getOuterIterator(const int loopIndex) {
+	    std::string name = "get_group_id(";
+        name += occa::toString(loopIndex);
+        name += ')';
+        return name;
+      }
+
+      std::string openclParser::getInnerIterator(const int loopIndex) {
+        std::string name = "get_local_id(";
+        name += occa::toString(loopIndex);
+        name += ')';
+    	return name;
+      }
+```
+and consequently the inner and outer loop variables will be replaced by ```get_local_id(0)``` and ```get_global_id(0)``` respectively.
