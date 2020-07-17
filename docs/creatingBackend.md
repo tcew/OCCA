@@ -162,3 +162,5 @@ would be parsed and the instance of ```t``` and ```b``` will be replaced by the 
       }
 ```
 and consequently the inner and outer loop variables will be replaced by ```get_local_id(0)``` and ```get_global_id(0)``` respectively.
+
+#### Backend kernel launch code generation
