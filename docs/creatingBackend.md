@@ -7,7 +7,7 @@ Each backend is referred to in the OCCA code as a "mode". Each mode provides imp
 
 #### Header files
 
-All modes are structured with API specification via a common set of header files:
+All modes are structured with API specification via a set of header files located in occa/include/occa/modes:
 
 ```
 cd occa
@@ -66,3 +66,20 @@ include/occa/modes
 
 Note that not all modes provide exactly the same set of headers.
 
+#### Backend mode API implementation
+
+Most of the API implementation for a backend is collected in one place (occa/src/modes/backendName). To keep things simple we will focus on CUDA specific mode API files:
+
+```
+tree src/modes/cuda/
+src/modes/cuda/
+├── device.cpp
+├── kernel.cpp
+├── memory.cpp
+├── registration.cpp
+├── stream.cpp
+├── streamTag.cpp
+└── utils.cpp
+```
+
+The purpose of each of these files should be evident from their names.
